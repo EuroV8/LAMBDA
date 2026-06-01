@@ -31,13 +31,28 @@ static int parse_label(const char* line, enum Alphabet* out){
     while (*p == ' ' || *p == '\t') //handling spaces
         p++;
 
-    if(strncmp(p, "SPACE", 5) == 0 && (p[5] == '\0' || p[5] == ' ' || p[5] == '\t')){ //special case for SPACE
-        *out = SPACE;
-        return 0;
-    }
     if(p[0] >= 'A' && p[0] <= 'Z' && (p[1] == '\0' || p[1] == ' ' || p[1] == '\t')){
         *out = (enum Alphabet)(p[0] - 'A'); //dynamically handles the enum lookup
         return 0;
+    }
+
+    //keyword labels for the space and punctuation glyphs
+    static const struct { const char* name; enum Alphabet value; } keywords[] = {
+        {"SPACE",      SPACE},
+        {"APOSTROPHE", APOSTROPHE},
+        {"COMMA",      COMMA},
+        {"PERIOD",     PERIOD},
+        {"COLON",      COLON},
+        {"EXCLAIM",    EXCLAIM},
+        {"QUESTION",   QUESTION},
+        {"HYPHEN",     HYPHEN},
+    };
+    for(size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++){
+        size_t n = strlen(keywords[i].name);
+        if(strncmp(p, keywords[i].name, n) == 0 && (p[n] == '\0' || p[n] == ' ' || p[n] == '\t')){
+            *out = keywords[i].value;
+            return 0;
+        }
     }
     return -1;
 }
@@ -136,6 +151,13 @@ int char_to_alphabet(char c, enum Alphabet* out){
     if(c >= 'A' && c <= 'Z'){ *out = (enum Alphabet)(c - 'A'); return 0; }
     if(c >= 'a' && c <= 'z'){ *out = (enum Alphabet)(c - 'a'); return 0; }
     if(c == ' ')             { *out = SPACE;                    return 0; }
+    if(c == '\'')            { *out = APOSTROPHE;               return 0; }
+    if(c == ',')             { *out = COMMA;                    return 0; }
+    if(c == '.')             { *out = PERIOD;                   return 0; }
+    if(c == ':')             { *out = COLON;                    return 0; }
+    if(c == '!')             { *out = EXCLAIM;                  return 0; }
+    if(c == '?')             { *out = QUESTION;                 return 0; }
+    if(c == '-')             { *out = HYPHEN;                   return 0; }
     return -1;
 }
 

@@ -10,8 +10,11 @@
 #define GLYPH_LINE_MAX_LEN 256
 
 enum Alphabet { A, B, C, D, E, F, G, H, I, J, K, L, M,
-                N, O, P, Q, R, S, T, U, V, W, X, Y, Z, SPACE };
-#define ALPHABET_COUNT 27
+                N, O, P, Q, R, S, T, U, V, W, X, Y, Z, SPACE,
+                //punctuation / special glyphs (keep A-Z contiguous from 0;
+                //char_to_alphabet and parse_label rely on that ordering)
+                APOSTROPHE, COMMA, PERIOD, COLON, EXCLAIM, QUESTION, HYPHEN };
+#define ALPHABET_COUNT 34
 
 enum FontType { BASE };
 
@@ -42,10 +45,11 @@ void render_term();
 //rendered column-width of n_letters glyphs separated by GLYPH_GAP
 int rendered_width(int n_letters);
 
-//map an ASCII character to an Alphabet enum value. 
+//map an ASCII character to an Alphabet enum value.
 //Returns:
 // 0 on success
-//-1 if the character has no glyph mapping. Accepts A-Z, a-z, and ' '
+//-1 if the character has no glyph mapping. Accepts A-Z, a-z, ' ',
+//and the punctuation glyphs ' , . : ! ? -
 int char_to_alphabet(char c, enum Alphabet* out);
 
 //count how many chars in text have a glyph mapping (same predicate as char_to_alphabet).
