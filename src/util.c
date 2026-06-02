@@ -1,5 +1,11 @@
 #include "../headers/util.h"
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <regex.h>
 
 //Map a 2-byte UTF-8 codepoint (Latin-1 Supplement + Latin Extended-A subset)
 //to its ASCII equivalent. 
@@ -45,7 +51,9 @@ const char* fold_2byte(uint8_t b1, uint8_t b2){
         case 0x00DD: return "Y";
         case 0x00FD: case 0x00FF: return "y";
         case 0x00DF: return "ss"; // ß
-        default: return NULL;
+
+        default: 
+            return NULL;
     }
 }
 
@@ -81,4 +89,131 @@ size_t transliterate_latin(char* text){
     }
     text[write_pos] = '\0'; //
     return write_pos;
+}
+
+static char* build_token_pattern(const char* song_name){
+    size_t n = strlen(song_name);
+    char* folded_name = (char*) malloc(n + 1);
+    if(!folded_name)
+        return NULL;
+    memcpy(folded_name, song_name, n + 1);
+    transliterate_latin(folded_name); //fold to ASCII in place (most likely shorter unless only ascii chars present in the name)
+
+    //worst case: every char is a token char (<= strlen) plus a 2-char ".*" separator 
+    //before each token (< strlen), so 3*strlen + 1 is always enough
+    char* pat = malloc(strlen(folded_name) * 3 + 1);
+    if(!pat){
+        free(folded_name);
+        return NULL;
+    }
+
+    size_t out = 0;
+    int inside_token = 0;
+    int wrote_token = 0;
+    for(size_t i = 0; folded_name[i]; i++){
+        unsigned char c = (unsigned char)folded_name[i];
+        if(isalnum(c)){
+            if(!inside_token && wrote_token){ //starting a new token after a previous one
+                pat[out++] = '.';
+                pat[out++] = '*';
+            }
+            pat[out++] = (char)tolower(c);
+            inside_token = 1;
+            wrote_token = 1;
+        } else {
+            inside_token = 0;
+        }
+    }
+    pat[out] = '\0';
+
+    free(folded_name);
+    if(!wrote_token){ //we didn't find a single alphanum char
+        free(pat);
+        return NULL;
+    }
+    return pat;
+}
+
+char* find_lrc_for_song(const char* song_name){
+    if(!song_name || !*song_name)
+        return NULL;
+
+    const char* home = getenv("HOME");
+    if(!home || !*home)
+        return NULL;
+
+    //default dir = "~/.lambda/lyrics"
+    static const char* subdir = LRC_DIR;
+    size_t home_len = strlen(home);
+    size_t dir_len = home_len + strlen(subdir);
+    char* dir = malloc(dir_len + 1);
+    if(!dir)
+        return NULL;
+    memcpy(dir, home, home_len);
+    memcpy(dir + home_len, subdir, strlen(subdir) + 1);
+
+    char* pattern = build_token_pattern(song_name);
+    if(!pattern){
+        free(dir);
+        return NULL;
+    }
+
+    regex_t re;
+    //REG_NOSUB: we only need yes/no, not the match offsets
+    if(regcomp(&re, pattern, REG_EXTENDED | REG_ICASE | REG_NOSUB) != 0){
+        free(pattern);
+        free(dir);
+        return NULL;
+    }
+    free(pattern);
+
+    DIR* d = opendir(dir);
+    if(!d){
+        regfree(&re);
+        free(dir);
+        return NULL;
+    }
+
+    char* best = NULL;
+    size_t best_len = 0; //filename length of current best (shorter = closer fit)
+
+    struct dirent* ent;
+    while((ent = readdir(d)) != NULL){ //checks every file in the dir
+        const char* name = ent->d_name;
+        size_t name_len = strlen(name);
+
+        //keep only "*.lrc" (case-insensitive extension)
+        if(name_len < 4 || strcasecmp(name + name_len - 4, ".lrc") != 0)
+            continue;
+        //already have a shorter match -> this one can't be better
+        if(best && name_len >= best_len)
+            continue;
+
+        //fold the basename (without ".lrc") to ASCII before matching
+        char* cand = malloc(name_len + 1);
+        if(!cand)
+            continue;
+        memcpy(cand, name, name_len - 4);
+        cand[name_len - 4] = '\0';
+        transliterate_latin(cand);
+
+        if(regexec(&re, cand, 0, NULL, 0) == 0){
+            //build "<dir>/<name>"
+            char* path = malloc(dir_len + 1 + name_len + 1);
+            if(path){
+                memcpy(path, dir, dir_len);
+                path[dir_len] = '/';
+                memcpy(path + dir_len + 1, name, name_len + 1);
+                free(best);
+                best = path;
+                best_len = name_len;
+            }
+        }
+        free(cand);
+    }
+
+    closedir(d);
+    regfree(&re);
+    free(dir);
+    return best;
 }
