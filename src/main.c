@@ -1,5 +1,6 @@
 #include "../headers/menu.h"
 #include "../headers/display.h"
+#include "../headers/spectrum.h"
 #include <stdio.h>
 
 int main(void){
@@ -21,6 +22,9 @@ int main(void){
             break;
         }
     }
-    //TODO: call (and implement first..) the corresponding mode's wrappersś
+
+    if(run_spectrum(mode) != 0){
+        return 1;
+    }
     return 0;
 }

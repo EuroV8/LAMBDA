@@ -15,8 +15,8 @@ endif
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
-$(BIN_DIR)/lambda: src/main.c src/menu.c src/display.c src/listen.c headers/menu.h headers/display.h headers/listen.h | $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ src/main.c src/menu.c src/display.c src/listen.c $(AUDIO_LIBS)
+$(BIN_DIR)/lambda: src/main.c src/menu.c src/display.c src/listen.c src/spectrum.c headers/menu.h headers/display.h headers/listen.h headers/spectrum.h | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ src/main.c src/menu.c src/display.c src/listen.c src/spectrum.c $(AUDIO_LIBS) -lm
 
 $(BIN_DIR)/test_renderer: tests/test_renderer.c src/display.c headers/display.h | $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ tests/test_renderer.c src/display.c
